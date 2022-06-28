@@ -82,7 +82,7 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
      * @param subdomain The desired subdomain label.
      * @param _subdomainOwner The account that should own the newly configured subdomain.
      */
-    function register(bytes32 label, string calldata subdomain, address _subdomainOwner) external override not_stopped {
+    function register(bytes32 label, string calldata subdomain, address _subdomainOwner) external override not_stopped canRegisterSubdomain {
         address subdomainOwner = _subdomainOwner;
         bytes32 domainNode = keccak256(abi.encodePacked(TLD_NODE, label));
         bytes memory subdomainBytes = bytes(subdomain);
@@ -119,4 +119,14 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         emit NewRegistration(label, subdomain, subdomainOwner);
     }
 
+    /// @notice Only can register if holding token
+    /// @dev A simple auth model for allowing just token holders to register subdomain
+    /// This is not a perfect model because:
+    /// 1. User can register unlimited submodules
+    /// 2. User can transfer the subdomain to non-token holding account
+    /// 3. User can transfer the token and still keep the subdomain
+    modifier canRegisterSubdomain() {
+        require(token.balanceOf(msg.sender) > 0);
+        _;
+    }
 }

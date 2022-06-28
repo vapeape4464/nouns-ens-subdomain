@@ -23,7 +23,8 @@ contract ContractTest is BaseTest {
     ENS ens;
     IBaseRegistrar registrar;
     SubdomainRegistrar subdomainRegistrar;
-    IResolver resolver; 
+    IResolver resolver;
+    TestErc721Token token;
 
     function setUp() public {
         vm.label(controller, "Controller");
@@ -47,7 +48,7 @@ contract ContractTest is BaseTest {
         resolver = new TestResolver();
 
         // unclear why this token is actually necessary, leave it for now
-        TestErc721Token token = new TestErc721Token();
+        token = new TestErc721Token();
         subdomainRegistrar = new SubdomainRegistrar(ens, token, resolver);
     }
 
@@ -68,11 +69,13 @@ contract ContractTest is BaseTest {
         registerTLD(tldLabel);
 
         vm.startPrank(bob);
+        // must be the owner of the token to register 
         registrar.approve(address(subdomainRegistrar), tldLabel);
         subdomainRegistrar.configureDomain('nouns');
         vm.stopPrank();
 
         vm.startPrank(alice);
+        token.mint(alice, 1);
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'alice', alice);
         vm.stopPrank();
 
