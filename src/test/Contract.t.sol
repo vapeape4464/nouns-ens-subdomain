@@ -75,12 +75,30 @@ contract ContractTest is BaseTest {
         vm.stopPrank();
 
         vm.startPrank(alice);
-        token.mint(alice, 1);
+        token.mint(alice, 111);
+        token.mint(alice, 101);
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'alice', alice);
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '111', alice);
+        vm.expectRevert("ERC721: owner query for nonexistent token");
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '2111', alice);
+
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'bob', bob);
+        vm.expectRevert(); // should not be able to register another users token id 
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '101', bob);
+        vm.expectRevert("ERC721: owner query for nonexistent token");
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '2', bob);
         vm.stopPrank();
 
         assertEq(ens.owner(Namehash.namehash('alice.nouns.eth')), address(subdomainRegistrar));
         assertEq(resolver.addr(Namehash.namehash('alice.nouns.eth')), alice);
+        assertEq(ens.owner(Namehash.namehash('111.nouns.eth')), address(subdomainRegistrar));
+        assertEq(resolver.addr(Namehash.namehash('111.nouns.eth')), alice);
+        assertEq(resolver.addr(Namehash.namehash('2111.nouns.eth')), address(0));
+        assertEq(ens.owner(Namehash.namehash('bob.nouns.eth')), address(subdomainRegistrar));
+        assertEq(resolver.addr(Namehash.namehash('bob.nouns.eth')), bob);
     }
     
     function registerTLD(uint256 hashedTLD) private {
