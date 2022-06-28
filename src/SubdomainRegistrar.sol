@@ -7,6 +7,7 @@ import {ENS} from "./ens/ENS.sol";
 import {IBaseRegistrar} from "./ens/interfaces/IBaseRegistrar.sol";
 import {IResolver} from "./ens/interfaces/IResolver.sol";
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import {console} from "./test/utils/console.sol";
 
 contract SubdomainRegistrar is AbstractSubdomainRegistrar {
 
@@ -82,7 +83,8 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
      * @param subdomain The desired subdomain label.
      * @param _subdomainOwner The account that should own the newly configured subdomain.
      */
-    function register(bytes32 label, string calldata subdomain, address _subdomainOwner) external override not_stopped {
+    function register(bytes32 label, string calldata subdomain, address _subdomainOwner) 
+                external override not_stopped canRegisterSubdomain(subdomain) {
         address subdomainOwner = _subdomainOwner;
         bytes32 domainNode = keccak256(abi.encodePacked(TLD_NODE, label));
         bytes memory subdomainBytes = bytes(subdomain);
@@ -119,4 +121,38 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         emit NewRegistration(label, subdomain, subdomainOwner);
     }
 
+    /// @notice Only can register if holding token
+    /// @dev A simple auth model for allowing just token holders to register the subdomain that 
+    /// coresponds to their token id. 
+    /// This is not a perfect model because:
+    /// 1. User can register unlimited submodules
+    /// 2. User can transfer the subdomain to non-token holding account
+    /// 3. User can transfer the token and still keep the subdomain
+    modifier canRegisterSubdomain(string calldata subdomain) {
+        // some subdomains are reserved for holders of the actual token. 
+        uint p_int = parseInt(subdomain);
+        require(p_int == 0 || token.ownerOf(p_int) == msg.sender);
+        _;
+    }
+
+    /// @notice Convert string to uint if possible, if not return 0
+    /// Seems slightly unsafe. lol 
+    function parseInt(string calldata value) public pure returns (uint _ret) {
+        unchecked {
+            bytes memory _bytesValue = bytes(value);
+            uint j = 1;
+            for (uint i = _bytesValue.length - 1; i >= 0 && i < _bytesValue.length; i--) {
+                if (uint8(_bytesValue[i]) >= 48 && uint8(_bytesValue[i]) <= 57) {
+                    _ret += (uint8(_bytesValue[i]) - 48) * j;
+                    j *= 10;
+                } else {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    // function isPotentialId(string calldata value) internal purereturns (bool) {
+    //     return parseInt(value) != 0;
+    // }
 }
