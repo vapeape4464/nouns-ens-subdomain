@@ -8,7 +8,7 @@ import {IBaseRegistrar} from "./ens/interfaces/IBaseRegistrar.sol";
 import {IResolver} from "./ens/interfaces/IResolver.sol";
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 
-contract NounsRegistrar is AbstractSubdomainRegistrar {
+contract SubdomainRegistrar is AbstractSubdomainRegistrar {
 
     struct Domain {
         string name;
@@ -118,4 +118,5 @@ contract NounsRegistrar is AbstractSubdomainRegistrar {
 
         emit NewRegistration(label, subdomain, subdomainOwner);
     }
+
 }
