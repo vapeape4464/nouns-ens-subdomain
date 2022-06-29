@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.4;
 
-import {ENS} from "./ens/ENS.sol";
-import {ISubdomainRegistrar} from "./ens/interfaces/ISubdomainRegistrar.sol";
-import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import { ENS } from "./ens/ENS.sol";
+import { ISubdomainRegistrar } from "./ens/interfaces/ISubdomainRegistrar.sol";
+import { ERC721 } from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 
 abstract contract AbstractSubdomainRegistrar is ISubdomainRegistrar {
 

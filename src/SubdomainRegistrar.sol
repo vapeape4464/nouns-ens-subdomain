@@ -2,12 +2,12 @@
 pragma solidity ^0.8.4;
 pragma experimental ABIEncoderV2;
 
-import {AbstractSubdomainRegistrar} from "./AbstractSubdomainRegistrar.sol";
-import {ENS} from "./ens/ENS.sol";
-import {IBaseRegistrar} from "./ens/interfaces/IBaseRegistrar.sol";
-import {IResolver} from "./ens/interfaces/IResolver.sol";
-import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import {console} from "./test/utils/console.sol";
+import { AbstractSubdomainRegistrar } from "./AbstractSubdomainRegistrar.sol";
+import { ENS } from "./ens/ENS.sol";
+import { IBaseRegistrar } from "./ens/interfaces/IBaseRegistrar.sol";
+import { IResolver } from "./ens/interfaces/IResolver.sol";
+import { ERC721 } from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import { console } from "./test/utils/console.sol";
 
 contract SubdomainRegistrar is AbstractSubdomainRegistrar {
 
@@ -19,7 +19,7 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
 
     mapping (bytes32 => Domain) domains;
 
-    IResolver immutable public resolver;
+    IResolver public immutable resolver;
 
     constructor(ENS ens, ERC721 token, IResolver _resolver) AbstractSubdomainRegistrar(ens, token) {
         resolver = _resolver;

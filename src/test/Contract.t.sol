@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.4;
 
-import {ENS} from "../ens/ENS.sol";
-import {ENSRegistry} from "../ens/ENSRegistry.sol";
-import {IResolver} from "../ens/interfaces/IResolver.sol";
-import {IBaseRegistrar} from "../ens/interfaces/IBaseRegistrar.sol";
-import {BaseRegistrarImplementation} from "../ens/BaseRegistrarImplementation.sol";
-import {SubdomainRegistrar} from "../SubdomainRegistrar.sol";
-import {BaseTest, console} from "./base/BaseTest.sol";
-import {Namehash} from "./utils/namehash.sol";
-import {TestResolver} from "./utils/TestResolver.sol";
-import {TestErc721Token} from "./utils/TestErc721Token.sol";
+import { ENS } from "../ens/ENS.sol";
+import { ENSRegistry } from "../ens/ENSRegistry.sol";
+import { IResolver } from "../ens/interfaces/IResolver.sol";
+import { IBaseRegistrar } from "../ens/interfaces/IBaseRegistrar.sol";
+import { BaseRegistrarImplementation } from "../ens/BaseRegistrarImplementation.sol";
+import { SubdomainRegistrar } from "../SubdomainRegistrar.sol";
+import { BaseTest, console } from "./base/BaseTest.sol";
+import { Namehash } from "./utils/namehash.sol";
+import { TestResolver } from "./utils/TestResolver.sol";
+import { TestErc721Token } from "./utils/TestErc721Token.sol";
 import "forge-std/Vm.sol";
 
 contract ContractTest is BaseTest {
@@ -19,6 +19,7 @@ contract ContractTest is BaseTest {
     address bob = address(0x133702);
     address alice = address(0x133706969);
     bytes32 namehashEth = Namehash.namehash('eth');
+    uint256 hashedTldNouns = uint256(keccak256(abi.encodePacked('nouns')));
 
     ENS ens;
     IBaseRegistrar registrar;
@@ -47,7 +48,6 @@ contract ContractTest is BaseTest {
         // set up subdomain registrar contract 
         resolver = new TestResolver();
 
-        // unclear why this token is actually necessary, leave it for now
         token = new TestErc721Token();
         subdomainRegistrar = new SubdomainRegistrar(ens, token, resolver);
     }
@@ -58,19 +58,17 @@ contract ContractTest is BaseTest {
     }
 
     function testRegisterNounsDomain() public {
-        uint256 hashedNouns = uint256(keccak256(abi.encodePacked('nouns')));
-        registerTLD(hashedNouns);
+        registerTLD(hashedTldNouns);
         assertEq(ens.owner(Namehash.namehash('nouns.eth')), bob);
-        assertEq(registrar.ownerOf(hashedNouns), bob);
+        assertEq(registrar.ownerOf(hashedTldNouns), bob);
     }
     
     function testRegisterSubdomain() public {
-        uint256 tldLabel = uint256(keccak256(abi.encodePacked('nouns')));
-        registerTLD(tldLabel);
+        registerTLD(hashedTldNouns);
 
         vm.startPrank(bob);
         // must be the owner of the token to register 
-        registrar.approve(address(subdomainRegistrar), tldLabel);
+        registrar.approve(address(subdomainRegistrar), hashedTldNouns);
         subdomainRegistrar.configureDomain('nouns');
         vm.stopPrank();
 
@@ -81,7 +79,6 @@ contract ContractTest is BaseTest {
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '111', alice);
         vm.expectRevert("ERC721: owner query for nonexistent token");
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '2111', alice);
-
         vm.stopPrank();
 
         vm.startPrank(bob);
