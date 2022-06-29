@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.4;
 pragma experimental ABIEncoderV2;
 
@@ -9,6 +9,8 @@ import { IResolver } from "./ens/interfaces/IResolver.sol";
 import { ERC721 } from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import { console } from "./test/utils/console.sol";
 
+/// @title SubdomainRegistrar
+/// @notice This contract owns ENS domains and enforces token permissioning for registering subdomains.
 contract SubdomainRegistrar is AbstractSubdomainRegistrar {
 
     struct Domain {
@@ -17,39 +19,35 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         uint price;
     }
 
+    /// @dev Domain name hash/label => Domain.
     mapping (bytes32 => Domain) domains;
 
     IResolver public immutable resolver;
 
-    constructor(ENS ens, ERC721 token, IResolver _resolver) AbstractSubdomainRegistrar(ens, token) {
+    /// @param _ens The ENS instance.
+    /// @param _token The ERC721 token used to enforce permissions.
+    /// @param _resolver The default ENS resolver for subdomains.
+    constructor(ENS _ens, ERC721 _token, IResolver _resolver) AbstractSubdomainRegistrar(_ens, _token) {
         resolver = _resolver;
     }
 
-    /**
-     * @dev owner returns the address of the account that controls a domain.
-     *      Initially this is a null address. If the name has been
-     *      transferred to this contract, then the internal mapping is consulted
-     *      to determine who controls it. If the owner is not set,
-     *      the owner of the domain in the TLD Registrar is returned.
-     * @param label The label hash to check.
-     * @return The address owning the label.
-     */
-    function owner(bytes32 label) public override view returns (address) {
-        if (domains[label].owner != address(0x0)) {
-            return domains[label].owner;
+    /// @notice If the domain is configured returns the internal owner, otherwise returns ENS owner.
+    /// @param _label The domain name hash/label.
+    /// @return address The current owner.
+    function owner(bytes32 _label) public override view returns (address) {
+        if (domains[_label].owner != address(0x0)) {
+            return domains[_label].owner;
         }
-        return IBaseRegistrar(registrar).ownerOf(uint256(label));
+        return IBaseRegistrar(registrar).ownerOf(uint256(_label));
     }
 
-    /**
-     * @dev Transfers internal control of a name to a new account. Does not update ENS.
-     * @param name The name to transfer.
-     * @param newOwner The address of the new owner.
-     */
-    function transfer(string memory name, address payable newOwner) public owner_only(keccak256(bytes(name))) {
-        bytes32 label = keccak256(bytes(name));
-        emit OwnerChanged(label, domains[label].owner, newOwner);
-        domains[label].owner = newOwner;
+    /// @notice Transfer internal domain ownership to a new owner.
+    /// @param _name The domain name eg. nouns.
+    /// @param _newOwner The address of the new owner.
+    function transfer(string memory _name, address payable _newOwner) public owner_only(keccak256(bytes(_name))) {
+        bytes32 label = keccak256(bytes(_name));
+        emit OwnerChanged(label, domains[label].owner, _newOwner);
+        domains[label].owner = _newOwner;
     }
 
     /**
