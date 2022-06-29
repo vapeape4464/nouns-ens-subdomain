@@ -50,16 +50,15 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         domains[label].owner = _newOwner;
     }
 
-    /**
-     * @dev Configures and updates ownership of a domain.
-     * @param name The name to configure.
-     * @param _owner The address to assign ownership of this domain to.
-     */
-    function configureDomainFor(string memory name, address payable _owner) public override owner_only(keccak256(bytes(name))) {
-        bytes32 label = keccak256(bytes(name));
+    /// @notice Configure a domain for internal use.
+    /// @param _name The domain name eg. nouns.
+    /// @param _owner The address of the internal owner.
+    function configureDomainFor(string memory _name, address payable _owner) public override owner_only(keccak256(bytes(_name))) {
+        bytes32 label = keccak256(bytes(_name));
         Domain storage domain = domains[label];
 
         if (IBaseRegistrar(registrar).ownerOf(uint256(label)) != address(this)) {
+            // Transfer ENS ownership to this.
             IBaseRegistrar(registrar).transferFrom(msg.sender, address(this), uint256(label));
             IBaseRegistrar(registrar).reclaim(uint256(label), address(this));
         }
@@ -70,31 +69,29 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
 
         if (keccak256(bytes(domain.name)) != label) {
             // New listing
-            domain.name = name;
+            domain.name = _name;
         }
+
         emit DomainConfigured(label);
     }
 
-    /**
-     * @dev Registers a subdomain.
-     * @param label The label hash of the domain to register a subdomain of.
-     * @param subdomain The desired subdomain label.
-     * @param _subdomainOwner The account that should own the newly configured subdomain.
-     */
-    function register(bytes32 label, string calldata subdomain, address _subdomainOwner) 
-                external override not_stopped canRegisterSubdomain(subdomain) {
+    /// @notice Register and configure a subdomain.
+    /// @param _label The domain hash/label used in ENS.
+    /// @param _subdomain The subdomain name to register.
+    /// @param _subdomainOwner TODO remove - since registration is deterministic we don't care who calls
+    function register(bytes32 _label, string calldata _subdomain, address _subdomainOwner) external override not_stopped canRegisterSubdomain(_subdomain) {
         address subdomainOwner = _subdomainOwner;
-        bytes32 domainNode = keccak256(abi.encodePacked(TLD_NODE, label));
-        bytes memory subdomainBytes = bytes(subdomain);
+        bytes32 domainNode = keccak256(abi.encodePacked(TLD_NODE, _label));
+        bytes memory subdomainBytes = bytes(_subdomain);
         bytes32 subdomainLabel = keccak256(subdomainBytes);
 
         // Subdomain must not be registered already.
         require(ens.owner(keccak256(abi.encodePacked(domainNode, subdomainLabel))) == address(0));
 
-        Domain storage domain = domains[label];
+        Domain storage domain = domains[_label];
 
         // Domain must be available for registration
-        require(keccak256(bytes(domain.name)) == label);
+        require(keccak256(bytes(domain.name)) == _label);
 
         // Register the domain
         if (subdomainOwner == address(0x0)) {
@@ -116,7 +113,7 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         // _safeMint(_subdomainOwner, tokenId);
         // _setTokenURI(tokenId, metadata.uri);
 
-        emit NewRegistration(label, subdomain, subdomainOwner);
+        emit NewRegistration(_label, _subdomain, subdomainOwner);
     }
 
     /// @notice Only can register if holding token

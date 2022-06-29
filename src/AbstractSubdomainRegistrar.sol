@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.4;
 
 import { ENS } from "./ens/ENS.sol";
 import { ISubdomainRegistrar } from "./ens/interfaces/ISubdomainRegistrar.sol";
 import { ERC721 } from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 
+/// @title Abstract implementation of a SubdomainRegistrar
 abstract contract AbstractSubdomainRegistrar is ISubdomainRegistrar {
 
     // namehash('eth')
@@ -34,6 +35,8 @@ abstract contract AbstractSubdomainRegistrar is ISubdomainRegistrar {
         _;
     }
 
+    /// @param _ens The ENS instance.
+    /// @param _token The ERC721 token used to enforce permissions.
     constructor(ENS _ens, ERC721 _token) {
         ens = _ens;
         token = _token;
@@ -41,58 +44,37 @@ abstract contract AbstractSubdomainRegistrar is ISubdomainRegistrar {
         registrarOwner = msg.sender;
     }
 
-    /**
-     * @dev Sets the resolver record for a name in ENS.
-     * @param name The name to set the resolver for.
-     * @param resolver The address of the resolver.
-     */
-    function setResolver(string memory name, address resolver) public owner_only(keccak256(bytes(name))) {
-        bytes32 label = keccak256(bytes(name));
-        bytes32 node = keccak256(abi.encodePacked(TLD_NODE, label));
-        ens.setResolver(node, resolver);
+    /// @notice Configure a domain for subdomain registrations.
+    /// @param _name The domain name.
+    function configureDomain(string memory _name) public {
+        configureDomainFor(_name, payable(msg.sender));
     }
 
-    /**
-     * @dev Configures a domain for subdomain registrations.
-     * @param name The name to configure.
-     */
-    function configureDomain(string memory name) public {
-        configureDomainFor(name, payable(msg.sender));
-    }
-
-    /**
-     * @dev Stops the registrar, disabling configuring of new domains.
-     */
+    /// @notice Stop the registrar from configuring new domains.
     function stop() public not_stopped registrar_owner_only {
         stopped = true;
     }
 
-    /**
-     * @dev Sets the address where domains are migrated to.
-     * @param _migration Address of the new registrar.
-     */
+    /// @notice Set a domain registrar migration address.
+    /// @param _migration Address of the new registrar.
     function setMigrationAddress(address _migration) public registrar_owner_only {
         require(stopped);
         migration = _migration;
     }
 
-    /**
-     * @dev Transfer ownership of this registrar to a new owner.
-     * @param newOwner Address of the new owner.
-     */
-    function transferOwnership(address newOwner) public registrar_owner_only {
-        registrarOwner = newOwner;
+    /// @notice Transfer ownership of this registrar.
+    /// @param _newOwner Address of the new owner.
+    function transferOwnership(address _newOwner) public registrar_owner_only {
+        registrarOwner = _newOwner;
     }
 
-    /**
-     * @dev Returns if a subdomain is available to register.
-     * @param label The label hash for the domain.
-     * @param subdomain The label for the subdomain.
-     * @return True if the subdomain is available.
-     */
-    function isSubdomainAvailable(bytes32 label, string calldata subdomain) external override view returns (bool) {
-        bytes32 node = keccak256(abi.encodePacked(TLD_NODE, label));
-        bytes32 subnode = keccak256(abi.encodePacked(node, keccak256(bytes(subdomain))));
+    /// @notice Return if a subdomain is available to register.
+    /// @param _label The ENS hash/label for the domain.
+    /// @param _subdomain The desired subdomain.
+    /// @return True If the subdomain is available to register.
+    function isSubdomainAvailable(bytes32 _label, string calldata _subdomain) external override view returns (bool) {
+        bytes32 node = keccak256(abi.encodePacked(TLD_NODE, _label));
+        bytes32 subnode = keccak256(abi.encodePacked(node, keccak256(bytes(_subdomain))));
 
         if (ens.owner(subnode) != address(0x0)) {
             return false;
@@ -100,6 +82,6 @@ abstract contract AbstractSubdomainRegistrar is ISubdomainRegistrar {
         return true;
     }
 
-    function owner(bytes32 label) public virtual view returns (address);
-    function configureDomainFor(string memory name, address payable _owner) public virtual;
+    function owner(bytes32 _label) public virtual view returns (address);
+    function configureDomainFor(string memory _name, address payable _owner) public virtual;
 }
