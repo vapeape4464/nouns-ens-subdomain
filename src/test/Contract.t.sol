@@ -14,7 +14,6 @@ import { TestErc721Token } from "./utils/TestErc721Token.sol";
 import "forge-std/Vm.sol";
 
 contract ContractTest is BaseTest {
-
     address controller = address(0x1337c);
     address bob = address(0x133702);
     address alice = address(0x133706969);
@@ -45,27 +44,20 @@ contract ContractTest is BaseTest {
         );
         vm.warp(90 days + 1); // Warp ahead of the ENS grace period.
         
-        // set up subdomain registrar contract 
+        // Initialize SubdomainRegistrar and register nouns.eth.
         resolver = new TestResolver();
-
         token = new TestErc721Token();
         subdomainRegistrar = new SubdomainRegistrar(ens, token, resolver);
-    }
-
-    function testValidateSetUp() public {
-        assertEq(Namehash.namehash('eth'), 0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae);
-        assertEq(ens.owner(namehashEth), address(registrar));
+        registerTld(hashedTldNouns);
     }
 
     function testRegisterNounsDomain() public {
-        registerTLD(hashedTldNouns);
+        assertEq(ens.owner(namehashEth), address(registrar));
         assertEq(ens.owner(Namehash.namehash('nouns.eth')), bob);
         assertEq(registrar.ownerOf(hashedTldNouns), bob);
     }
     
     function testRegisterSubdomain() public {
-        registerTLD(hashedTldNouns);
-
         vm.startPrank(bob);
         // must be the owner of the token to register 
         registrar.approve(address(subdomainRegistrar), hashedTldNouns);
@@ -98,10 +90,10 @@ contract ContractTest is BaseTest {
         assertEq(resolver.addr(Namehash.namehash('bob.nouns.eth')), bob);
     }
     
-    function registerTLD(uint256 hashedTLD) private {
+    function registerTld(uint256 hashedTld) private {
         vm.startPrank(controller);
         registrar.register(
-            hashedTLD,
+            hashedTld,
             bob,
             1 days
         );
