@@ -1,66 +1,67 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.4;
 pragma experimental ABIEncoderV2;
 
-import {AbstractSubdomainRegistrar} from "./AbstractSubdomainRegistrar.sol";
-import {ENS} from "./ens/ENS.sol";
-import {IBaseRegistrar} from "./ens/interfaces/IBaseRegistrar.sol";
-import {IResolver} from "./ens/interfaces/IResolver.sol";
-import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import { AbstractSubdomainRegistrar } from "./AbstractSubdomainRegistrar.sol";
+import { ENS } from "./ens/ENS.sol";
+import { IBaseRegistrar } from "./ens/interfaces/IBaseRegistrar.sol";
+import { IResolver } from "./ens/interfaces/IResolver.sol";
+import { ERC721 } from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import { console } from "./test/utils/console.sol";
+import { IRegistryRule } from "./rules/IRegistryRule.sol";
 
+/// @title SubdomainRegistrar
+/// @notice This contract owns ENS domains and enforces token permissioning for registering subdomains.
 contract SubdomainRegistrar is AbstractSubdomainRegistrar {
 
     struct Domain {
         string name;
         address payable owner;
         uint price;
+        IRegistryRule rule;
     }
 
+    /// @dev Domain name hash/label => Domain.
     mapping (bytes32 => Domain) domains;
 
-    IResolver immutable public resolver;
+    IResolver public immutable resolver;
 
-    constructor(ENS ens, ERC721 token, IResolver _resolver) AbstractSubdomainRegistrar(ens, token) {
+    /// @param _ens The ENS instance.
+    /// @param _token The ERC721 token used to enforce permissions.
+    /// @param _resolver The default ENS resolver for subdomains.
+    constructor(ENS _ens, ERC721 _token, IResolver _resolver) AbstractSubdomainRegistrar(_ens, _token) {
         resolver = _resolver;
     }
 
-    /**
-     * @dev owner returns the address of the account that controls a domain.
-     *      Initially this is a null address. If the name has been
-     *      transferred to this contract, then the internal mapping is consulted
-     *      to determine who controls it. If the owner is not set,
-     *      the owner of the domain in the TLD Registrar is returned.
-     * @param label The label hash to check.
-     * @return The address owning the label.
-     */
-    function owner(bytes32 label) public override view returns (address) {
-        if (domains[label].owner != address(0x0)) {
-            return domains[label].owner;
+    /// @notice If the domain is configured returns the internal owner, otherwise returns ENS owner.
+    /// @param _label The domain name hash/label.
+    /// @return address The current owner.
+    function owner(bytes32 _label) public override view returns (address) {
+        if (domains[_label].owner != address(0x0)) {
+            return domains[_label].owner;
         }
-        return IBaseRegistrar(registrar).ownerOf(uint256(label));
+        return IBaseRegistrar(registrar).ownerOf(uint256(_label));
     }
 
-    /**
-     * @dev Transfers internal control of a name to a new account. Does not update ENS.
-     * @param name The name to transfer.
-     * @param newOwner The address of the new owner.
-     */
-    function transfer(string memory name, address payable newOwner) public owner_only(keccak256(bytes(name))) {
-        bytes32 label = keccak256(bytes(name));
-        emit OwnerChanged(label, domains[label].owner, newOwner);
-        domains[label].owner = newOwner;
+    /// @notice Transfer internal domain ownership to a new owner.
+    /// @param _name The domain name eg. nouns.
+    /// @param _newOwner The address of the new owner.
+    function transfer(string memory _name, address payable _newOwner) public owner_only(keccak256(bytes(_name))) {
+        bytes32 label = keccak256(bytes(_name));
+        emit OwnerChanged(label, domains[label].owner, _newOwner);
+        domains[label].owner = _newOwner;
     }
 
-    /**
-     * @dev Configures and updates ownership of a domain.
-     * @param name The name to configure.
-     * @param _owner The address to assign ownership of this domain to.
-     */
-    function configureDomainFor(string memory name, address payable _owner) public override owner_only(keccak256(bytes(name))) {
-        bytes32 label = keccak256(bytes(name));
+    /// @notice Configure a domain for internal use.
+    /// @param _name The domain name eg. nouns.
+    /// @param _owner The address of the internal owner.
+    function configureDomainFor(string memory _name, address payable _owner, IRegistryRule _rule) public override owner_only(keccak256(bytes(_name))) {
+        bytes32 label = keccak256(bytes(_name));
         Domain storage domain = domains[label];
+        domain.rule = _rule;
 
         if (IBaseRegistrar(registrar).ownerOf(uint256(label)) != address(this)) {
+            // Transfer ENS ownership to this.
             IBaseRegistrar(registrar).transferFrom(msg.sender, address(this), uint256(label));
             IBaseRegistrar(registrar).reclaim(uint256(label), address(this));
         }
@@ -71,30 +72,39 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
 
         if (keccak256(bytes(domain.name)) != label) {
             // New listing
-            domain.name = name;
+            domain.name = _name;
         }
+
         emit DomainConfigured(label);
     }
 
-    /**
-     * @dev Registers a subdomain.
-     * @param label The label hash of the domain to register a subdomain of.
-     * @param subdomain The desired subdomain label.
-     * @param _subdomainOwner The account that should own the newly configured subdomain.
-     */
-    function register(bytes32 label, string calldata subdomain, address _subdomainOwner) external override not_stopped {
+     /// @dev Registers a subdomain.
+     /// @param _label The label hash of the domain to register a subdomain of.
+     /// @param _subdomain The desired subdomain label.
+     /// @param _subdomainOwner The account that should own the newly configured subdomain.
+    function register(bytes32 _label, string calldata _subdomain, address _subdomainOwner) 
+                external override not_stopped canRegisterSubdomain(domains[_label].rule, _subdomain) {
+        _register(_label, _subdomain, _subdomainOwner);
+    }
+
+    function registerWithToken(bytes32 _label, string calldata _subdomain, address _subdomainOwner, uint tokenId) 
+                external not_stopped canRegisterSubdomainWithToken(domains[_label].rule, _subdomain, tokenId) {
+        _register(_label, _subdomain, _subdomainOwner);
+    }
+
+    function _register(bytes32 _label, string calldata _subdomain, address _subdomainOwner) internal {
         address subdomainOwner = _subdomainOwner;
-        bytes32 domainNode = keccak256(abi.encodePacked(TLD_NODE, label));
-        bytes memory subdomainBytes = bytes(subdomain);
+        bytes32 domainNode = keccak256(abi.encodePacked(TLD_NODE, _label));
+        bytes memory subdomainBytes = bytes(_subdomain);
         bytes32 subdomainLabel = keccak256(subdomainBytes);
 
         // Subdomain must not be registered already.
         require(ens.owner(keccak256(abi.encodePacked(domainNode, subdomainLabel))) == address(0));
 
-        Domain storage domain = domains[label];
+        Domain storage domain = domains[_label];
 
         // Domain must be available for registration
-        require(keccak256(bytes(domain.name)) == label);
+        require(keccak256(bytes(domain.name)) == _label);
 
         // Register the domain
         if (subdomainOwner == address(0x0)) {
@@ -116,7 +126,16 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         // _safeMint(_subdomainOwner, tokenId);
         // _setTokenURI(tokenId, metadata.uri);
 
-        emit NewRegistration(label, subdomain, subdomainOwner);
+        emit NewRegistration(_label, _subdomain, subdomainOwner);
     }
 
+    modifier canRegisterSubdomainWithToken(IRegistryRule rule, string calldata subdomain, uint tokenId) {
+        require(rule.canRegisterWithToken(subdomain, msg.sender, tokenId));
+        _;
+    }
+
+    modifier canRegisterSubdomain(IRegistryRule rule, string calldata subdomain) {
+        require(address(rule) == address(0) || rule.canRegister(subdomain, msg.sender));
+        _;
+    }
 }

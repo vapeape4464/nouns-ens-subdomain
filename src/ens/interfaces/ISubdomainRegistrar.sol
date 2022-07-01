@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.4;
 
+/// @title Interface for a SubdomainRegistrar
 interface ISubdomainRegistrar {
     event OwnerChanged(bytes32 indexed label, address indexed oldOwner, address indexed newOwner);
     event DomainConfigured(bytes32 indexed label);
