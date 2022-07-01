@@ -12,7 +12,6 @@ contract ReservedTokenIdNames is IRegistryRule {
         token = _token;
     }
     
-    /// @notice Users can register the name IFF they own the token that has matching token_id
     function canRegister(string calldata _label, address _sender) external pure returns (bool) {
         return false;
     }

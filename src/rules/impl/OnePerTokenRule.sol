@@ -18,7 +18,6 @@ contract OnePerTokenRule is IRegistryRule {
     }
 
     function canRegisterWithToken(string calldata _label, address _sender, uint _tokenId) external view returns (bool) {
-        // super simple version. Allows unlimitted registers to anyone that holds `token`
         require(!_usedTokens[_tokenId]);
         require(token.ownerOf(_tokenId) == _sender);
         return true;

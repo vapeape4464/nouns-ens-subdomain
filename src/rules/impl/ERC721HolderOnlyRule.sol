@@ -13,7 +13,6 @@ contract ERC721HolderOnlyRule is IRegistryRule {
     }
     
     function canRegisterWithToken(string calldata label, address _sender,uint _tokenId) external view returns (bool) {
-        // super simple version. Allows unlimitted registers to anyone that holds `token`
         return token.balanceOf(_sender) > 0;
     }
 
