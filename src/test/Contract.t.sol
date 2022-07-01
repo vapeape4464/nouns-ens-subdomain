@@ -11,6 +11,10 @@ import { BaseTest, console } from "./base/BaseTest.sol";
 import { Namehash } from "./utils/namehash.sol";
 import { TestResolver } from "./utils/TestResolver.sol";
 import { TestErc721Token } from "./utils/TestErc721Token.sol";
+import { IRegistryRule } from "../rules/IRegistryRule.sol";
+import { ERC721HolderOnlyRule } from "../rules/impl/ERC721HolderOnlyRule.sol";
+import { OnePerTokenRule } from "../rules/impl/OnePerTokenRule.sol";
+import { ReservedTokenIdNames } from "../rules/impl/ReserverdTokenIdNames.sol";
 import "forge-std/Vm.sol";
 
 contract ContractTest is BaseTest {
@@ -25,6 +29,11 @@ contract ContractTest is BaseTest {
     SubdomainRegistrar subdomainRegistrar;
     IResolver resolver;
     TestErc721Token token;
+
+    // Rules
+    IRegistryRule reservedTokenIdsRule;
+    IRegistryRule perTokenRule; 
+    IRegistryRule tokenHolderRule;
 
     function setUp() public {
         vm.label(controller, "Controller");
@@ -48,6 +57,11 @@ contract ContractTest is BaseTest {
         resolver = new TestResolver();
         token = new TestErc721Token();
         subdomainRegistrar = new SubdomainRegistrar(ens, token, resolver);
+        // available rule sets 
+        reservedTokenIdsRule = new ReservedTokenIdNames(token);
+        perTokenRule = new OnePerTokenRule(token);
+        tokenHolderRule = new ERC721HolderOnlyRule(token);
+
         registerTld(hashedTldNouns);
     }
 
@@ -57,7 +71,7 @@ contract ContractTest is BaseTest {
         assertEq(registrar.ownerOf(hashedTldNouns), bob);
     }
     
-    function testRegisterSubdomain() public {
+    function testRegisterSubdomainNoRules() public {
         vm.startPrank(bob);
         // must be the owner of the token to register 
         registrar.approve(address(subdomainRegistrar), hashedTldNouns);
@@ -69,15 +83,10 @@ contract ContractTest is BaseTest {
         token.mint(alice, 101);
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'alice', alice);
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '111', alice);
-        vm.expectRevert("ERC721: owner query for nonexistent token");
-        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '2111', alice);
         vm.stopPrank();
 
         vm.startPrank(bob);
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'bob', bob);
-        vm.expectRevert(); // should not be able to register another users token id 
-        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '101', bob);
-        vm.expectRevert("ERC721: owner query for nonexistent token");
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '2', bob);
         vm.stopPrank();
 
@@ -85,9 +94,82 @@ contract ContractTest is BaseTest {
         assertEq(resolver.addr(Namehash.namehash('alice.nouns.eth')), alice);
         assertEq(ens.owner(Namehash.namehash('111.nouns.eth')), address(subdomainRegistrar));
         assertEq(resolver.addr(Namehash.namehash('111.nouns.eth')), alice);
-        assertEq(resolver.addr(Namehash.namehash('2111.nouns.eth')), address(0));
         assertEq(ens.owner(Namehash.namehash('bob.nouns.eth')), address(subdomainRegistrar));
         assertEq(resolver.addr(Namehash.namehash('bob.nouns.eth')), bob);
+        assertEq(ens.owner(Namehash.namehash('2.nouns.eth')), address(subdomainRegistrar));
+        assertEq(resolver.addr(Namehash.namehash('2.nouns.eth')), bob);
+    }
+
+    function testRegisterSubdomainTokenHoldersOnly() public {
+        vm.startPrank(bob);
+        // must be the owner of the token to register 
+        registrar.approve(address(subdomainRegistrar), hashedTldNouns);
+        subdomainRegistrar.configureDomainFor('nouns', payable(bob), tokenHolderRule);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        token.mint(alice, 1);
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'alice', alice);
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '111', alice);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        vm.expectRevert(); // should not be able to register when not holding token
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '101', bob);
+        vm.stopPrank();
+
+        assertEq(ens.owner(Namehash.namehash('alice.nouns.eth')), address(subdomainRegistrar));
+        assertEq(resolver.addr(Namehash.namehash('alice.nouns.eth')), alice);
+        assertEq(ens.owner(Namehash.namehash('111.nouns.eth')), address(subdomainRegistrar));
+        assertEq(resolver.addr(Namehash.namehash('111.nouns.eth')), alice);
+    }
+
+    function testRegisterSubdomainReservedNames() public {
+        vm.startPrank(bob);
+        registrar.approve(address(subdomainRegistrar), hashedTldNouns);
+        subdomainRegistrar.configureDomainFor('nouns', payable(bob), reservedTokenIdsRule);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        token.mint(alice, 111);
+        subdomainRegistrar.registerWithToken(keccak256(abi.encodePacked('nouns')), '111', alice, 111);
+        vm.expectRevert(); 
+        subdomainRegistrar.registerWithToken(keccak256(abi.encodePacked('nouns')), 'alice', alice, 111);
+        vm.expectRevert(); 
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'alice', alice);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        vm.expectRevert(); // should not be able to register when not holding token
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'bob', bob);
+        vm.stopPrank();
+
+        assertEq(ens.owner(Namehash.namehash('111.nouns.eth')), address(subdomainRegistrar));
+        assertEq(resolver.addr(Namehash.namehash('111.nouns.eth')), alice);
+    }
+
+    function testRegisterSubdomainOnlyOne() public {
+        vm.startPrank(bob);
+        registrar.approve(address(subdomainRegistrar), hashedTldNouns);
+        subdomainRegistrar.configureDomainFor('nouns', payable(bob), reservedTokenIdsRule);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        token.mint(alice, 111);
+        subdomainRegistrar.registerWithToken(keccak256(abi.encodePacked('nouns')), '111', alice, 111);
+        vm.expectRevert(); 
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '222', alice);
+        vm.expectRevert(); 
+        subdomainRegistrar.registerWithToken(keccak256(abi.encodePacked('nouns')), 'alice', alice, 111);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        vm.expectRevert(); // should not be able to register when not holding token
+        subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'bob', bob);
+        vm.stopPrank();
+
+        assertEq(ens.owner(Namehash.namehash('111.nouns.eth')), address(subdomainRegistrar));
+        assertEq(resolver.addr(Namehash.namehash('111.nouns.eth')), alice);
     }
     
     function registerTld(uint256 hashedTld) private {

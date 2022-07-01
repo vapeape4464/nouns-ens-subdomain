@@ -8,6 +8,7 @@ import { IBaseRegistrar } from "./ens/interfaces/IBaseRegistrar.sol";
 import { IResolver } from "./ens/interfaces/IResolver.sol";
 import { ERC721 } from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import { console } from "./test/utils/console.sol";
+import { IRegistryRule } from "./rules/IRegistryRule.sol";
 
 /// @title SubdomainRegistrar
 /// @notice This contract owns ENS domains and enforces token permissioning for registering subdomains.
@@ -17,6 +18,7 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         string name;
         address payable owner;
         uint price;
+        IRegistryRule rule;
     }
 
     /// @dev Domain name hash/label => Domain.
@@ -53,9 +55,10 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
     /// @notice Configure a domain for internal use.
     /// @param _name The domain name eg. nouns.
     /// @param _owner The address of the internal owner.
-    function configureDomainFor(string memory _name, address payable _owner) public override owner_only(keccak256(bytes(_name))) {
+    function configureDomainFor(string memory _name, address payable _owner, IRegistryRule _rule) public override owner_only(keccak256(bytes(_name))) {
         bytes32 label = keccak256(bytes(_name));
         Domain storage domain = domains[label];
+        domain.rule = _rule;
 
         if (IBaseRegistrar(registrar).ownerOf(uint256(label)) != address(this)) {
             // Transfer ENS ownership to this.
@@ -75,11 +78,21 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         emit DomainConfigured(label);
     }
 
-    /// @notice Register and configure a subdomain.
-    /// @param _label The domain hash/label used in ENS.
-    /// @param _subdomain The subdomain name to register.
-    /// @param _subdomainOwner TODO remove - since registration is deterministic we don't care who calls
-    function register(bytes32 _label, string calldata _subdomain, address _subdomainOwner) external override not_stopped canRegisterSubdomain(_subdomain) {
+     /// @dev Registers a subdomain.
+     /// @param _label The label hash of the domain to register a subdomain of.
+     /// @param _subdomain The desired subdomain label.
+     /// @param _subdomainOwner The account that should own the newly configured subdomain.
+    function register(bytes32 _label, string calldata _subdomain, address _subdomainOwner) 
+                external override not_stopped canRegisterSubdomain(domains[_label].rule, _subdomain) {
+        _register(_label, _subdomain, _subdomainOwner);
+    }
+
+    function registerWithToken(bytes32 _label, string calldata _subdomain, address _subdomainOwner, uint tokenId) 
+                external not_stopped canRegisterSubdomainWithToken(domains[_label].rule, _subdomain, tokenId) {
+        _register(_label, _subdomain, _subdomainOwner);
+    }
+
+    function _register(bytes32 _label, string calldata _subdomain, address _subdomainOwner) internal {
         address subdomainOwner = _subdomainOwner;
         bytes32 domainNode = keccak256(abi.encodePacked(TLD_NODE, _label));
         bytes memory subdomainBytes = bytes(_subdomain);
@@ -116,38 +129,13 @@ contract SubdomainRegistrar is AbstractSubdomainRegistrar {
         emit NewRegistration(_label, _subdomain, subdomainOwner);
     }
 
-    /// @notice Only can register if holding token
-    /// @dev A simple auth model for allowing just token holders to register the subdomain that 
-    /// coresponds to their token id. 
-    /// This is not a perfect model because:
-    /// 1. User can register unlimited submodules
-    /// 2. User can transfer the subdomain to non-token holding account
-    /// 3. User can transfer the token and still keep the subdomain
-    modifier canRegisterSubdomain(string calldata subdomain) {
-        // some subdomains are reserved for holders of the actual token. 
-        uint p_int = parseInt(subdomain);
-        require(p_int == 0 || token.ownerOf(p_int) == msg.sender);
+    modifier canRegisterSubdomainWithToken(IRegistryRule rule, string calldata subdomain, uint tokenId) {
+        require(rule.canRegisterWithToken(subdomain, msg.sender, tokenId));
         _;
     }
 
-    /// @notice Convert string to uint if possible, if not return 0
-    /// Seems slightly unsafe. lol 
-    function parseInt(string calldata value) public pure returns (uint _ret) {
-        unchecked {
-            bytes memory _bytesValue = bytes(value);
-            uint j = 1;
-            for (uint i = _bytesValue.length - 1; i >= 0 && i < _bytesValue.length; i--) {
-                if (uint8(_bytesValue[i]) >= 48 && uint8(_bytesValue[i]) <= 57) {
-                    _ret += (uint8(_bytesValue[i]) - 48) * j;
-                    j *= 10;
-                } else {
-                    return 0;
-                }
-            }
-        }
+    modifier canRegisterSubdomain(IRegistryRule rule, string calldata subdomain) {
+        require(address(rule) == address(0) || rule.canRegister(subdomain, msg.sender));
+        _;
     }
-
-    // function isPotentialId(string calldata value) internal purereturns (bool) {
-    //     return parseInt(value) != 0;
-    // }
 }

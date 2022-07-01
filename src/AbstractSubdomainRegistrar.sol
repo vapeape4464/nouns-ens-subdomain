@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import { ENS } from "./ens/ENS.sol";
 import { ISubdomainRegistrar } from "./ens/interfaces/ISubdomainRegistrar.sol";
+import { IRegistryRule } from "./rules/IRegistryRule.sol";
 import { ERC721 } from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 
 /// @title Abstract implementation of a SubdomainRegistrar
@@ -47,7 +48,7 @@ abstract contract AbstractSubdomainRegistrar is ISubdomainRegistrar {
     /// @notice Configure a domain for subdomain registrations.
     /// @param _name The domain name.
     function configureDomain(string memory _name) public {
-        configureDomainFor(_name, payable(msg.sender));
+        configureDomainFor(_name, payable(msg.sender), IRegistryRule(address(0)));
     }
 
     /// @notice Stop the registrar from configuring new domains.
@@ -83,5 +84,5 @@ abstract contract AbstractSubdomainRegistrar is ISubdomainRegistrar {
     }
 
     function owner(bytes32 _label) public virtual view returns (address);
-    function configureDomainFor(string memory _name, address payable _owner) public virtual;
+    function configureDomainFor(string memory _name, address payable _owner, IRegistryRule _rule) public virtual;
 }
