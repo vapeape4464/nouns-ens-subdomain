@@ -8,6 +8,7 @@
     "prettier-plugin-solidity": "^1.0.0-beta.19"
   },
   "scripts": {
-    "lint": "prettier --write **.sol"
+    "lint": "prettier --write **.sol",
+    "lint-check": "prettier --check **.sol"
   }
 }

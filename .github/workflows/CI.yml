@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - rfs
   pull_request:
 
 jobs:
@@ -19,5 +20,11 @@ jobs:
         with:
           version: nightly
 
+      - name: Lint Check
+        run: make lint-check 
+
+      - name: Gas snapshot check
+        run: make snapshot
+      
       - name: Run tests
         run: FOUNDRY_PROFILE=ci make test

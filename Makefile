@@ -6,10 +6,10 @@
 update:; forge update
 
 # Build & test
-all :; 
 build  :; forge build && forge remappings > remappings.txt
 test   :; forge test
 trace   :; forge test -vvv
 clean  :; forge clean
-snapshot :; forge snapshot
+snapshot :; forge snapshot --check
 lint :; npm run lint
+lint-check :; npm run lint-check
