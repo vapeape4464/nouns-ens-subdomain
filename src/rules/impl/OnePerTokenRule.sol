@@ -23,8 +23,7 @@ contract OnePerTokenRule is IRegistryRule {
         uint256 _tokenId
     ) external returns (bool) {
         require(!_usedTokens[_tokenId] && token.ownerOf(_tokenId) == _sender);
-        _usedTokens[_tokenId] =
-         true;
+        _usedTokens[_tokenId] = true;
         return true;
     }
 }
