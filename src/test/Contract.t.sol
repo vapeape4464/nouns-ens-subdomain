@@ -147,7 +147,7 @@ contract ContractTest is BaseTest {
     function testRegisterSubdomainOnlyOne() public {
         vm.startPrank(bob);
         registrar.approve(address(subdomainRegistrar), hashedTldNouns);
-        subdomainRegistrar.configureDomainFor('nouns', payable(bob), reservedTokenIdsRule);
+        subdomainRegistrar.configureDomainFor('nouns', payable(bob), perTokenRule);
         vm.stopPrank();
 
         vm.startPrank(alice);

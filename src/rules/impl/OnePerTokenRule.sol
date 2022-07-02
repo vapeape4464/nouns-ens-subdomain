@@ -21,9 +21,9 @@ contract OnePerTokenRule is IRegistryRule {
         string calldata _label,
         address _sender,
         uint256 _tokenId
-    ) external view returns (bool) {
-        require(!_usedTokens[_tokenId]);
-        require(token.ownerOf(_tokenId) == _sender);
+    ) external returns (bool) {
+        require(!_usedTokens[_tokenId] && token.ownerOf(_tokenId) == _sender);
+        _usedTokens[_tokenId] = true;
         return true;
     }
 }
