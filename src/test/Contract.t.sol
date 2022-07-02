@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.4;
 
-import { ENS } from "../ens/ENS.sol";
-import { ENSRegistry } from "../ens/ENSRegistry.sol";
-import { IResolver } from "../ens/interfaces/IResolver.sol";
-import { IBaseRegistrar } from "../ens/interfaces/IBaseRegistrar.sol";
-import { BaseRegistrarImplementation } from "../ens/BaseRegistrarImplementation.sol";
-import { SubdomainRegistrar } from "../SubdomainRegistrar.sol";
-import { BaseTest, console } from "./base/BaseTest.sol";
-import { Namehash } from "./utils/namehash.sol";
-import { TestResolver } from "./utils/TestResolver.sol";
-import { TestErc721Token } from "./utils/TestErc721Token.sol";
-import { IRegistryRule } from "../rules/IRegistryRule.sol";
-import { ERC721HolderOnlyRule } from "../rules/impl/ERC721HolderOnlyRule.sol";
-import { OnePerTokenRule } from "../rules/impl/OnePerTokenRule.sol";
-import { ReservedTokenIdNames } from "../rules/impl/ReserverdTokenIdNames.sol";
-import "forge-std/Vm.sol";
+import {ENS} from '../ens/ENS.sol';
+import {ENSRegistry} from '../ens/ENSRegistry.sol';
+import {IResolver} from '../ens/interfaces/IResolver.sol';
+import {IBaseRegistrar} from '../ens/interfaces/IBaseRegistrar.sol';
+import {BaseRegistrarImplementation} from '../ens/BaseRegistrarImplementation.sol';
+import {SubdomainRegistrar} from '../SubdomainRegistrar.sol';
+import {BaseTest, console} from './base/BaseTest.sol';
+import {Namehash} from './utils/namehash.sol';
+import {TestResolver} from './utils/TestResolver.sol';
+import {TestErc721Token} from './utils/TestErc721Token.sol';
+import {IRegistryRule} from '../rules/IRegistryRule.sol';
+import {ERC721HolderOnlyRule} from '../rules/impl/ERC721HolderOnlyRule.sol';
+import {OnePerTokenRule} from '../rules/impl/OnePerTokenRule.sol';
+import {ReservedTokenIdNames} from '../rules/impl/ReserverdTokenIdNames.sol';
+import 'forge-std/Vm.sol';
 
 contract ContractTest is BaseTest {
     address controller = address(0x1337c);
@@ -32,32 +32,28 @@ contract ContractTest is BaseTest {
 
     // Rules
     IRegistryRule reservedTokenIdsRule;
-    IRegistryRule perTokenRule; 
+    IRegistryRule perTokenRule;
     IRegistryRule tokenHolderRule;
 
     function setUp() public {
-        vm.label(controller, "Controller");
-        vm.label(bob, "Bob");
-        vm.label(alice, "Alice");
-        vm.label(address(this), "TestContract");
+        vm.label(controller, 'Controller');
+        vm.label(bob, 'Bob');
+        vm.label(alice, 'Alice');
+        vm.label(address(this), 'TestContract');
 
         ens = new ENSRegistry();
         registrar = new BaseRegistrarImplementation(ens, namehashEth);
 
         // Bootstrap ENS.
         registrar.addController(controller);
-        ens.setSubnodeOwner(
-            bytes32(0),
-            keccak256(abi.encodePacked('eth')),
-            address(registrar)
-        );
+        ens.setSubnodeOwner(bytes32(0), keccak256(abi.encodePacked('eth')), address(registrar));
         vm.warp(90 days + 1); // Warp ahead of the ENS grace period.
-        
+
         // Initialize SubdomainRegistrar and register nouns.eth.
         resolver = new TestResolver();
         token = new TestErc721Token();
         subdomainRegistrar = new SubdomainRegistrar(ens, token, resolver);
-        // available rule sets 
+        // available rule sets
         reservedTokenIdsRule = new ReservedTokenIdNames(token);
         perTokenRule = new OnePerTokenRule(token);
         tokenHolderRule = new ERC721HolderOnlyRule(token);
@@ -70,10 +66,10 @@ contract ContractTest is BaseTest {
         assertEq(ens.owner(Namehash.namehash('nouns.eth')), bob);
         assertEq(registrar.ownerOf(hashedTldNouns), bob);
     }
-    
+
     function testRegisterSubdomainNoRules() public {
         vm.startPrank(bob);
-        // must be the owner of the token to register 
+        // must be the owner of the token to register
         registrar.approve(address(subdomainRegistrar), hashedTldNouns);
         subdomainRegistrar.configureDomain('nouns');
         vm.stopPrank();
@@ -102,7 +98,7 @@ contract ContractTest is BaseTest {
 
     function testRegisterSubdomainTokenHoldersOnly() public {
         vm.startPrank(bob);
-        // must be the owner of the token to register 
+        // must be the owner of the token to register
         registrar.approve(address(subdomainRegistrar), hashedTldNouns);
         subdomainRegistrar.configureDomainFor('nouns', payable(bob), tokenHolderRule);
         vm.stopPrank();
@@ -133,9 +129,9 @@ contract ContractTest is BaseTest {
         vm.startPrank(alice);
         token.mint(alice, 111);
         subdomainRegistrar.registerWithToken(keccak256(abi.encodePacked('nouns')), '111', alice, 111);
-        vm.expectRevert(); 
+        vm.expectRevert();
         subdomainRegistrar.registerWithToken(keccak256(abi.encodePacked('nouns')), 'alice', alice, 111);
-        vm.expectRevert(); 
+        vm.expectRevert();
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), 'alice', alice);
         vm.stopPrank();
 
@@ -157,9 +153,9 @@ contract ContractTest is BaseTest {
         vm.startPrank(alice);
         token.mint(alice, 111);
         subdomainRegistrar.registerWithToken(keccak256(abi.encodePacked('nouns')), '111', alice, 111);
-        vm.expectRevert(); 
+        vm.expectRevert();
         subdomainRegistrar.register(keccak256(abi.encodePacked('nouns')), '222', alice);
-        vm.expectRevert(); 
+        vm.expectRevert();
         subdomainRegistrar.registerWithToken(keccak256(abi.encodePacked('nouns')), 'alice', alice, 111);
         vm.stopPrank();
 
@@ -171,14 +167,10 @@ contract ContractTest is BaseTest {
         assertEq(ens.owner(Namehash.namehash('111.nouns.eth')), address(subdomainRegistrar));
         assertEq(resolver.addr(Namehash.namehash('111.nouns.eth')), alice);
     }
-    
+
     function registerTld(uint256 hashedTld) private {
         vm.startPrank(controller);
-        registrar.register(
-            hashedTld,
-            bob,
-            1 days
-        );
+        registrar.register(hashedTld, bob, 1 days);
         vm.stopPrank();
     }
 }

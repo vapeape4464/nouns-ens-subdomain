@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.4;
 
-import { IResolver } from "../../ens/interfaces/IResolver.sol";
+import {IResolver} from '../../ens/interfaces/IResolver.sol';
 
 contract TestResolver is IResolver {
-    mapping (bytes32 => address) addresses;
+    mapping(bytes32 => address) addresses;
 
-    function supportsInterface(bytes4 interfaceID) public override pure returns (bool) {
+    function supportsInterface(bytes4 interfaceID) public pure override returns (bool) {
         return interfaceID == 0x01ffc9a7 || interfaceID == 0x3b3b57de;
     }
 

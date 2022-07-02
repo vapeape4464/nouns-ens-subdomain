@@ -1,0 +1,5 @@
+ContractTest:testRegisterNounsDomain() (gas: 31669)
+ContractTest:testRegisterSubdomainNoRules() (gas: 600936)
+ContractTest:testRegisterSubdomainOnlyOne() (gas: 332365)
+ContractTest:testRegisterSubdomainReservedNames() (gas: 332414)
+ContractTest:testRegisterSubdomainTokenHoldersOnly() (gas: 425079)
